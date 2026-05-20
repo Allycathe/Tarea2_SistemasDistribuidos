@@ -1,0 +1,10 @@
+
+SIMULACION: UNIFORME    50 MB   LRU
+------------------------------
+Hits: 21179 | Misses: 78821
+Hit Rate: 21.18%
+Latencia p50: 1.500411999586504 ms | p95: 15.24732799953199 ms
+Throughput: 194.35 qps
+Eviction Rate: 7767.750197892991 ev/min
+------------------------------
+

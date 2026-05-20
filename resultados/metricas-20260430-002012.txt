@@ -1,0 +1,9 @@
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 23675 | Misses: 76325
+Hit Rate: 23.67%
+Latencia p50: 1.7134429999714484 ms | p95: 17.531940000480972 ms
+Throughput: 193.88333333333333 qps
+Eviction Rate: 4875.205538141336 ev/min
+------------------------------
