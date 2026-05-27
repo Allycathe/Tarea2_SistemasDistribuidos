@@ -11,6 +11,9 @@ import uuid
 from kafka import KafkaProducer
 
 producer = KafkaProducer(bootstrap_servers='kafka:9092')
+
+time.sleep(5) # Esperar a que Kafka esté listo
+
 console = Console()
 # Configuración inicial
 try:

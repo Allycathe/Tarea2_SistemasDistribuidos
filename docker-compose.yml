@@ -1,8 +1,64 @@
 services:
+  # ─── INFRAESTRUCTURA ───────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # los creamos manualmente abajo
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Crea los tópicos al iniciar
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka_setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic consultas-principales --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic consultas-reintento   --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic dlq                   --partitions 1 --replication-factor 1
+      echo 'Tópicos creados'
+      "
+    networks:
+      - app-network
+
+  # ─── CACHE ─────────────────────────────────────────────────
   cache:
     image: redis:7.2-alpine
     container_name: sistema_cache
-    command: redis-server --maxmemory ${REDIS_MAX_MEMORY:-200mb} --maxmemory-policy ${REDIS_POLICY:-allkeys-lru} # Configura Redis para usar un máximo de memoria y una política de eliminación
+    command: redis-server --maxmemory ${REDIS_MAX_MEMORY:-200mb} --maxmemory-policy ${REDIS_POLICY:-allkeys-lru}
     ports:
       - "6379:6379"
     networks:
@@ -13,6 +69,7 @@ services:
       timeout: 3s
       retries: 5
 
+  # ─── GENERADOR DE RESPUESTAS ───────────────────────────────
   generador_respuestas:
     build: ./respuestas
     container_name: servicio_respuestas
@@ -30,6 +87,45 @@ services:
       cache:
         condition: service_healthy
 
+  # ─── CONSUMIDORES ──────────────────────────────────────────
+  consumer:
+    build: ./consumidores
+    container_name: consumer_principal
+    environment:
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - KAFKA_HOST=kafka:9092
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      generador_respuestas:
+        condition: service_started
+      kafka-setup:
+        condition: service_completed_successfully
+
+  consumer_retry:
+    build: ./consumidores
+    container_name: consumer_reintento
+    command: ["python", "consumer_retry.py"]   # ← apunta al archivo de reintento
+    environment:
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - KAFKA_HOST=kafka:9092
+    networks:
+      - app-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+
+  # ─── GENERADOR DE TRÁFICO ──────────────────────────────────
   generador_trafico:
     build: ./trafico
     container_name: servicio_trafico
@@ -37,7 +133,8 @@ services:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=cache
       - REDIS_PORT=6379
-      - KAFKA_HOST=kafka:9092 #nuevo para conectar con kafka en vez de redis, es decir, el intermediario entre el generador de tráfico y los consumidores será kafka en vez de redis
+      - KAFKA_HOST=kafka:9092
+      - SIMULATION_MODE=uniforme
       - FORCE_COLOR=1
     volumes:
       - ./trafico:/app
@@ -48,7 +145,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+      generador_respuestas:
+        condition: service_started
 
+  # ─── MÉTRICAS ──────────────────────────────────────────────
   metricas:
     build: ./metricas
     container_name: servicio_metricas
@@ -66,67 +168,21 @@ services:
     volumes:
       - ./resultados:/app/resultados
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-    networks:
-      - app-network
-
-  kafka:
-    image: confluentinc/cp-kafka:7.4.0
-    container_name: kafka
-    depends_on:
-      - zookeeper
+# ─── KAFKA UI (VISUALIZACIÓN WEB) ────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka_ui
     ports:
-      - "9092:9092"
+      - "8080:8080"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"  
-      KAFKA_CREATE_TOPICS: consultas-principales:3:1,consultas-reintentos:1:1,dlq:1:1 # crea tópicos automáticamente
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  consumer:
-    build: ./consumidores
-    container_name: consumer_principal
-    environment:
-      - KAFKA_HOST=kafka:9092
-      - REDIS_HOST=cache
-      - REDIS_PORT=6379
+      - KAFKA_CLUSTERS_0_NAME=Cluster-Local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - DYNAMIC_CONFIG_ENABLED=true
     networks:
       - app-network
     depends_on:
       kafka:
         condition: service_healthy
-      cache:
-        condition: service_healthy
-
-  consumer_retry: 
-    build: ./consumidores
-    container_name: consumer_reintento
-    environment:
-      - KAFKA_HOST=kafka:9092
-      - REDIS_HOST=cache
-      - REDIS_PORT=6379
-      - CONSUMER_MODE=retry          # para saber qué tópico leer
-    networks:
-      - app-network
-    depends_on:
-      kafka:
-        condition: service_healthy
-      cache:
-        condition: service_healthy
-
 
 networks:
   app-network:

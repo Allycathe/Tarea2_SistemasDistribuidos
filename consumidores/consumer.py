@@ -56,12 +56,12 @@ for msg in consumer:
         r.incr(f"{modo}:hits")
         r.rpush(f"{modo}:latencies", latencia)
         r.rpush(f"{modo}:timestamps", time.time())
-        print(f"HIT {key} ({latencia:.2f}ms)")
+        print(f" ✓ HIT {key} ({latencia:.2f}ms)")
 
     else:
         # Cache MISS — empujar a cola Redis para que el engine procese
         r.lpush("cola:consultas", json.dumps(mensaje))
-        print(f"MISS {key} → esperando engine...")
+        print(f" ✗ MISS {key} → esperando engine...")
 
         # Esperar hasta que el engine guarde la respuesta en caché
         intentos = 0
@@ -78,7 +78,7 @@ for msg in consumer:
             r.incr(f"{modo}:misses")
             r.rpush(f"{modo}:latencies", latencia)
             r.rpush(f"{modo}:timestamps", time.time())
-            print(f"PROCESADO {key} ({latencia:.2f}ms)")
+            print(f" ✓ PROCESADO {key} ({latencia:.2f}ms)")
         else:
             # Engine no respondió → fallo
             print(f"Timeout esperando engine para {key}")
