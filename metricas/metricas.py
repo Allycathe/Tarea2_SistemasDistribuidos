@@ -35,6 +35,14 @@ def imprimir_resumen(modo):
 
     evs_first = r.lindex(f"{modo}:evictions", 0)
     evs_last = r.lindex(f"{modo}:evictions", -1)
+    # Nuevas metricas
+    retries   = int(r.get(f"{modo}:retry_count") or 0)
+    recovered = int(r.get(f"{modo}:recovered")   or 0)
+    dlq_count = int(r.get(f"{modo}:dlq_count")   or 0)
+
+    retry_rate    = round((retries   / total) * 100, 2) if total > 0 else 0
+    recovery_rate = round((recovered / retries) * 100, 2) if retries > 0 else 0
+    dlq_rate      = round((dlq_count / total)  * 100, 2) if total > 0 else 0
 
     # Eviction rate: (evs_last - evs_first) / (t_last - t_first) * 60
     if evs_first and evs_last:
@@ -49,7 +57,8 @@ def imprimir_resumen(modo):
     # Crear archivo por experimento
     os.makedirs('resultados', exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"resultados/metricas-{timestamp}.txt"
+    escenario = os.getenv("ESCENARIO", "base")
+    filename = f"resultados/metricas-{escenario}-{modo}-{timestamp}.txt"
     
     with open(filename, 'a') as f:
         f.write(f"\nSIMULACION: {modo.upper()}\n")
@@ -60,6 +69,12 @@ def imprimir_resumen(modo):
         f.write(f"Throughput: {throughput} qps\n")
         f.write(f"Eviction Rate: {eviction_rate} ev/min\n")
         f.write("-" * 30 + "\n")
+        f.write(f"Reintentos: {retries}\n")
+        f.write(f"Retry Rate: {retry_rate}%\n")
+        f.write(f"Recuperados: {recovered}\n")
+        f.write(f"Recovery Rate: {recovery_rate}%\n")
+        f.write(f"DLQ: {dlq_count}\n")
+        f.write(f"DLQ Rate: {dlq_rate}%\n")
 
     table = Table(title=f" Reporte de Simulación: {modo.upper()}", title_style="bold magenta", show_header=True, header_style="bold cyan")
     
@@ -73,6 +88,12 @@ def imprimir_resumen(modo):
     table.add_row("Latencia p95", f"{round(p95, 2) if p95 else 0} ms")
     table.add_row("Throughput", f"{round(throughput, 4)} qps")
     table.add_row("Eviction Rate", f"{round(eviction_rate, 4)} ev/min")
+    table.add_row("Reintentos",    str(retries))
+    table.add_row("Retry Rate",    f"{retry_rate}%")
+    table.add_row("Recuperados",   str(recovered))
+    table.add_row("Recovery Rate", f"{recovery_rate}%")
+    table.add_row("DLQ",           str(dlq_count))
+    table.add_row("DLQ Rate",      f"{dlq_rate}%")
 
     console.print(Panel(table, expand=False, border_style="bright_blue"))
     return filename

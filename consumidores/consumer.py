@@ -30,12 +30,14 @@ def manejar_fallo(mensaje):
             value=json.dumps(mensaje).encode()
         )
         print(f" DLQ: {mensaje['cache_key']}")
+        r.incr(f"{mensaje['modo']}:dlq_count")
     else:
         producer.send(
-            mensaje["tipo"],
+            'consultas-reintento',
             key=mensaje["id"].encode(),
             value=json.dumps(mensaje).encode()
         )
+        r.incr(f"{mensaje['modo']}:retry_count")   
         print(f" Reintento {mensaje['retry_count']}: {mensaje['cache_key']}")
 
 print(" Consumer iniciado, esperando mensajes...")
@@ -50,14 +52,14 @@ for msg in consumer:
 
         # 1. Revisar caché
         respuesta = r.get(key)
-        latencia  = (time.perf_counter() - t0) * 1000
 
         if respuesta:
             # Cache HIT
-            r.incr(f"{modo}:misses")
+            latencia = (time.perf_counter() - t0) * 1000
+            r.incr(f"{modo}:hits")          # ← hits
             r.rpush(f"{modo}:latencies", latencia)
             r.rpush(f"{modo}:timestamps", time.time())
-            print(f"[{msg.topic}/P{msg.partition}] X MISS {key} -> esperando...")
+            print(f"[{msg.topic}/P{msg.partition}] ✓ HIT {key} ({latencia:.2f}ms)")
 
         else:
             # Cache MISS — empujar a cola Redis para que el engine procese
@@ -74,6 +76,7 @@ for msg in consumer:
                 intentos += 1
 
             if respuesta:
+                latencia = (time.perf_counter() - t0) * 1000
                 r.incr(f"{modo}:misses")
                 r.rpush(f"{modo}:latencies", latencia)
                 r.rpush(f"{modo}:timestamps", time.time())
