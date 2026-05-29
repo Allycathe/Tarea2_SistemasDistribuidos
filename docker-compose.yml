@@ -27,7 +27,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # los creamos manualmente abajo
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     networks:
       - app-network
     healthcheck:
@@ -36,7 +36,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Crea los tópicos al iniciar
+  # Crea todos los tópicos necesarios
   kafka-setup:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka_setup
@@ -51,7 +51,9 @@ services:
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q3 --partitions 5 --replication-factor 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q4 --partitions 5 --replication-factor 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q5 --partitions 5 --replication-factor 1
-      echo 'Tópicos creados'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic consultas-reintento --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic dlq --partitions 1 --replication-factor 1
+      echo 'Todos los topicos creados'
       "
     networks:
       - app-network
@@ -89,10 +91,10 @@ services:
       cache:
         condition: service_healthy
 
-  # ─── CONSUMIDORES ──────────────────────────────────────────
+  # ─── CONSUMIDOR PRINCIPAL ──────────────────────────────────
+  # Sin container_name para permitir --scale consumer=N
   consumer:
     build: ./consumidores
-    container_name: consumer_principal
     environment:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
@@ -109,10 +111,11 @@ services:
       kafka-setup:
         condition: service_completed_successfully
 
+  # ─── CONSUMIDOR DE REINTENTOS ──────────────────────────────
   consumer_retry:
     build: ./consumidores
     container_name: consumer_reintento
-    command: ["python", "consumer_retry.py"]   # ← apunta al archivo de reintento
+    command: ["python", "consumer_retry.py"]
     environment:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
@@ -136,7 +139,8 @@ services:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
       - KAFKA_HOST=kafka:9092
-      - SIMULATION_MODE=uniforme
+      - SIMULATION_MODE=${SIMULATION_MODE:-uniforme}
+      - N_PEDIDOS=${N_PEDIDOS:-1000}
       - FORCE_COLOR=1
     volumes:
       - ./trafico:/app
@@ -159,9 +163,10 @@ services:
     environment:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
+      - KAFKA_HOST=kafka:9092
+      - MODO_METRICAS=${MODO_METRICAS:-uniforme}
+      - ESCENARIO=${ESCENARIO:-base}
       - FORCE_COLOR=1
-    ports:
-      - "8086:8086"
     networks:
       - app-network
     depends_on:
@@ -170,7 +175,7 @@ services:
     volumes:
       - ./resultados:/app/resultados
 
-# ─── KAFKA UI (VISUALIZACIÓN WEB) ────────────────────────
+  # ─── KAFKA UI ──────────────────────────────────────────────
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka_ui
