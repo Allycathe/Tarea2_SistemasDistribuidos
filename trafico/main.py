@@ -7,6 +7,12 @@ from rich.console import Console
 from rich.progress import track
 from rich.panel import Panel
 import os
+import uuid
+from kafka import KafkaProducer
+
+producer = KafkaProducer(bootstrap_servers='kafka:9092')
+
+time.sleep(5) # Esperar a que Kafka esté listo
 
 console = Console()
 # Configuración inicial
@@ -19,38 +25,31 @@ except redis.ConnectionError:
 
 ZONAS = ["Z1", "Z2", "Z3", "Z4", "Z5"] 
 CONSULTAS = ["Q1", "Q2", "Q3", "Q4", "Q5"] 
-N_PEDIDOS = 100000 # Cantidad de consultas por experimento
+N_PEDIDOS = 1000 # Cantidad de consultas por experimento
 
 def enviar_a_sistema(key, tipo, zona, conf, modo, zona_b=None, bins=5):
-    t0 = time.perf_counter()
-    respuesta = r.get(key)
-    latencia_ms = (time.perf_counter() - t0) * 1000
     
-    if respuesta:
-        #CACHE HIT 
-        r.incr(f"{modo}:hits") 
-        r.rpush(f"{modo}:latencies", latencia_ms)
-        r.rpush(f"{modo}:timestamps", time.time())
-        console.print(f"[bold green]+ HIT [/bold green] [white]{key}[/white] [dim]({latencia_ms:.2f}ms)[/dim]") 
-    else:
-        #CACHE MISS
-        r.incr(f"{modo}:misses")
-        console.print(f"[bold red]- MISS[/bold red] [white]{key}[/white] [dim]→ Motor[/dim]")
-        
-        datos_consulta = {
-            "tipo": tipo,
-            "zona": zona,
-            "zona_b": zona_b,
-            "confidence_min": conf,
-            "bins": bins,
-            "cache_key": key,
-            "modo": modo 
-        }
-        r.lpush("cola:consultas", json.dumps(datos_consulta))
+    datos_consulta = {
+        "id": str(uuid.uuid4()),
+        "timestamp": time.time(),
+        "retry_count": 0,
+        "tipo": tipo,
+        "zona": zona,
+        "zona_b": zona_b,
+        "confidence_min": conf,
+        "bins": bins,
+        "cache_key": key,
+        "modo": modo
+    }
     
-    # Métricas de politicas de removición
-    info = r.info("stats")
-    r.rpush(f"{modo}:evictions", f"{time.time()}:{info['evicted_keys']}")
+    # enviar SIEMPRE a Kafka, sin revisar caché
+    producer.send(
+        'consultas-principales',
+        key=zona.encode(),    # por zona para distribuir particiones
+        value=json.dumps(datos_consulta).encode()
+    )
+    
+    console.print(f"[bold blue]→ ENVIADO[/bold blue] [white]{key}[/white]")
 
 def ejecutar_simulacion(modo):
     console.print(f"\n[bold reverse] INICIANDO SIMULACIÓN: {modo.upper()} [/bold reverse]\n")
@@ -104,4 +103,4 @@ if __name__ == "__main__":
 
     ejecutar_simulacion(modo)
 
-
+# agregar el producer de kafka, agregué el ID, timestamp y retry_count y reemplaze el r.lpush por el producer.send para enviar los datos a kafka
