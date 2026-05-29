@@ -44,7 +44,7 @@ def enviar_a_sistema(key, tipo, zona, conf, modo, zona_b=None, bins=5):
     
     # enviar SIEMPRE a Kafka, sin revisar caché
     producer.send(
-        'consultas-principales',
+        tipo,
         key=zona.encode(),    # por zona para distribuir particiones
         value=json.dumps(datos_consulta).encode()
     )
