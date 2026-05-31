@@ -1,5 +1,4 @@
 services:
-  # ─── INFRAESTRUCTURA ───────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
@@ -27,7 +26,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # los creamos manualmente abajo
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     networks:
       - app-network
     healthcheck:
@@ -36,7 +35,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # Crea los tópicos al iniciar
   kafka-setup:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka_setup
@@ -46,17 +44,17 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: |
       "
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q1 --partitions 5 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q2 --partitions 5 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q3 --partitions 5 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q4 --partitions 5 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic Q5 --partitions 5 --replication-factor 1
+      echo 'Esperando Kafka...'
+      sleep 10
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic consultas-principales --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic consultas-reintento   --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic dlq                   --partitions 1 --replication-factor 1
       echo 'Tópicos creados'
       "
     networks:
       - app-network
+    restart: on-failure
 
-  # ─── CACHE ─────────────────────────────────────────────────
   cache:
     image: redis:7.2-alpine
     container_name: sistema_cache
@@ -71,7 +69,6 @@ services:
       timeout: 3s
       retries: 5
 
-  # ─── GENERADOR DE RESPUESTAS ───────────────────────────────
   generador_respuestas:
     build: ./respuestas
     container_name: servicio_respuestas
@@ -89,7 +86,6 @@ services:
       cache:
         condition: service_healthy
 
-  # ─── CONSUMIDORES ──────────────────────────────────────────
   consumer:
     build: ./consumidores
     container_name: consumer_principal
@@ -112,7 +108,7 @@ services:
   consumer_retry:
     build: ./consumidores
     container_name: consumer_reintento
-    command: ["python", "consumer_retry.py"]   # ← apunta al archivo de reintento
+    command: ["python", "consumer_retry.py"]
     environment:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
@@ -127,7 +123,6 @@ services:
       kafka-setup:
         condition: service_completed_successfully
 
-  # ─── GENERADOR DE TRÁFICO ──────────────────────────────────
   generador_trafico:
     build: ./trafico
     container_name: servicio_trafico
@@ -152,7 +147,6 @@ services:
       generador_respuestas:
         condition: service_started
 
-  # ─── MÉTRICAS ──────────────────────────────────────────────
   metricas:
     build: ./metricas
     container_name: servicio_metricas
@@ -170,7 +164,6 @@ services:
     volumes:
       - ./resultados:/app/resultados
 
-# ─── KAFKA UI (VISUALIZACIÓN WEB) ────────────────────────
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka_ui
