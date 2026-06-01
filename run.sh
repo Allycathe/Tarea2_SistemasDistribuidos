@@ -61,11 +61,11 @@ for modo in uniforme zipf; do
     paso "Corriendo simulación SÍNCRONA modo=$modo..."
     docker compose run --rm \
         -e SIMULATION_MODE="$modo" \
-        -e N_PEDIDOS=2000 \
+        -e N_PEDIDOS=100000 \
         -e DELAY_MS=5 \
         -e MODO_TRANSPORTE=sincrono \
         generador_trafico
-    guardar_metricas "base_sincrono_$modo" "$modo"
+    guardar_metricas "caso1_sincrono_$modo" "$modo"
     limpiar_redis
     docker compose restart generador_respuestas
     sleep 10
@@ -88,11 +88,11 @@ for modo in uniforme zipf; do
     paso "Corriendo tráfico Kafka modo=$modo | 1 consumer..."
     docker compose run --rm \
         -e SIMULATION_MODE="$modo" \
-        -e N_PEDIDOS=2000 \
+        -e N_PEDIDOS=100000 \
         -e DELAY_MS=5 \
         generador_trafico
     sleep 10
-    guardar_metricas "kafka_1consumer_$modo" "$modo"
+    guardar_metricas "caso2_kafka_1consumer_$modo" "$modo"
     limpiar_redis
     docker compose restart generador_respuestas
     sleep 10
@@ -116,11 +116,11 @@ for n_consumers in 2 4; do
     paso "Corriendo tráfico | $n_consumers consumers | modo=uniforme..."
     docker compose run --rm \
         -e SIMULATION_MODE=uniforme \
-        -e N_PEDIDOS=3000 \
+        -e N_PEDIDOS=100000 \
         -e DELAY_MS=2 \
         generador_trafico
     sleep 10
-    guardar_metricas "kafka_${n_consumers}consumers" "uniforme"
+    guardar_metricas "caso3_kafka_${n_consumers}consumers" "uniforme"
     limpiar_redis
 
     docker compose down -v
@@ -141,7 +141,7 @@ sleep 30
 paso "Iniciando tráfico en background..."
 docker compose run --rm -d \
     -e SIMULATION_MODE=uniforme \
-    -e N_PEDIDOS=3000 \
+    -e N_PEDIDOS=100000 \
     -e DELAY_MS=3 \
     generador_trafico
 
@@ -157,7 +157,7 @@ docker start servicio_respuestas
 ok "Engine recuperado"
 sleep 20
 
-guardar_metricas "falla_temporal" "uniforme"
+guardar_metricas "caso4_falla_temporal" "uniforme"
 docker compose down -v
 ok "Escenario 4 completado"
 
@@ -176,11 +176,11 @@ for falla_rate in 0.2 0.5; do
     paso "Corriendo tráfico con FALLA_RATE=$falla_rate..."
     docker compose run --rm \
         -e SIMULATION_MODE=uniforme \
-        -e N_PEDIDOS=2000 \
+        -e N_PEDIDOS=100000 \
         -e DELAY_MS=5 \
         generador_trafico
     sleep 15
-    guardar_metricas "reintentos_falla${falla_rate}" "uniforme"
+    guardar_metricas "caso5_reintentos_falla${falla_rate}" "uniforme"
     limpiar_redis
 
     docker compose down -v
@@ -201,7 +201,7 @@ sleep 30
 paso "Corriendo tráfico con spike activado..."
 docker compose run --rm \
     -e SIMULATION_MODE=uniforme \
-    -e N_PEDIDOS=3000 \
+    -e N_PEDIDOS=100000 \
     -e DELAY_MS=5 \
     -e SPIKE_ENABLED=true \
     -e SPIKE_EN_PEDIDO=1000 \
@@ -209,7 +209,7 @@ docker compose run --rm \
     -e SPIKE_DELAY_MS=1 \
     generador_trafico
 sleep 15
-guardar_metricas "spike_trafico" "uniforme"
+guardar_metricas "caso6_spike_trafico" "uniforme"
 
 docker compose down -v
 ok "Escenario 6 completado"
@@ -227,7 +227,7 @@ sleep 15
 
 docker compose run --rm -d \
     -e SIMULATION_MODE=uniforme \
-    -e N_PEDIDOS=2000 \
+    -e N_PEDIDOS=100000 \
     -e DELAY_MS=5 \
     -e MODO_TRANSPORTE=sincrono \
     generador_trafico
@@ -239,7 +239,7 @@ sleep 20
 docker start servicio_respuestas
 sleep 10
 
-guardar_metricas "recuperacion_sincrono" "uniforme"
+guardar_metricas "caso7a_recuperacion_sincrono" "uniforme"
 limpiar_redis
 docker compose down -v
 sleep 5
@@ -251,7 +251,7 @@ sleep 30
 
 docker compose run --rm -d \
     -e SIMULATION_MODE=uniforme \
-    -e N_PEDIDOS=2000 \
+    -e N_PEDIDOS=100000 \
     -e DELAY_MS=5 \
     generador_trafico
 
@@ -263,7 +263,7 @@ docker start servicio_respuestas
 ok "Engine recuperado — Kafka retiene las consultas acumuladas"
 sleep 15
 
-guardar_metricas "recuperacion_kafka" "uniforme"
+guardar_metricas "caso7b_recuperacion_kafka" "uniforme"
 docker compose down -v
 ok "Escenario 7 completado"
 

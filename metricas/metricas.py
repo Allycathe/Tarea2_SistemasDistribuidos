@@ -98,8 +98,8 @@ def imprimir_resumen(modo):
 
     # Guardar en archivo
     os.makedirs("resultados", exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename  = f"resultados/metricas-{os.getenv('ESCENARIO', 'exp')}-{timestamp}.txt"
+    escenario = os.getenv("ESCENARIO", "exp")
+    filename  = f"resultados/{escenario}.txt"
 
     with open(filename, "a") as f:
         f.write(f"\nSIMULACION: {modo.upper()}\n")
