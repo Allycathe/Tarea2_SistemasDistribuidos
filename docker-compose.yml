@@ -1,0 +1,71 @@
+services:
+  cache:
+    image: redis:7.2-alpine
+    container_name: sistema_cache
+    command: redis-server --maxmemory ${REDIS_MAX_MEMORY:-200mb} --maxmemory-policy ${REDIS_POLICY:-allkeys-lru} # Configura Redis para usar un máximo de memoria y una política de eliminación
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  generador_respuestas:
+    build: ./respuestas
+    container_name: servicio_respuestas
+    volumes:
+      - ./dataset:/app/data
+      - ./respuestas:/app
+    environment:
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - DATASET_PATH=/app/data/buildings.csv
+      - FORCE_COLOR=1
+    networks:
+      - app-network
+    depends_on:
+      cache:
+        condition: service_healthy
+
+  generador_trafico:
+    build: ./trafico
+    container_name: servicio_trafico
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - RESPUESTAS_HOST=generador_respuestas
+      - FORCE_COLOR=1
+    volumes:
+      - ./trafico:/app
+    networks:
+      - app-network
+    depends_on:
+      cache:
+        condition: service_healthy
+      generador_respuestas:
+        condition: service_started
+
+  metricas:
+    build: ./metricas
+    container_name: servicio_metricas
+    environment:
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+      - FORCE_COLOR=1
+    ports:
+      - "8086:8086"
+    networks:
+      - app-network
+    depends_on:
+      cache:
+        condition: service_healthy
+    volumes:
+      - ./resultados:/app/resultados
+
+networks:
+  app-network:
+    driver: bridge

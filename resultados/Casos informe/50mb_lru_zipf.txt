@@ -1,0 +1,11 @@
+
+SIMULACION: ZIPF    50MB    LRU
+------------------------------
+Hits: 21198 | Misses: 78802
+Hit Rate: 21.2%
+Latencia p50: 1.6892719995666994 ms | p95: 17.659088000073098 ms
+Throughput: 189.45 qps
+Eviction Rate: 6866.609292504766 ev/min
+------------------------------
+
+LRU UNI -> LRU ZIPF -> LFU UNI -> LFU UNI     50 MB

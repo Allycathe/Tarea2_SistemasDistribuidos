@@ -1,0 +1,9 @@
+
+SIMULACION: ZIPF
+------------------------------
+Hits: 27062 | Misses: 72938
+Hit Rate: 27.06%
+Latencia p50: 1.361922000796767 ms | p95: 16.835379001349793 ms
+Throughput: 225.75 qps
+Eviction Rate: 1492.8186714945302 ev/min
+------------------------------
