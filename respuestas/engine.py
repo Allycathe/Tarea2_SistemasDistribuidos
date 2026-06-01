@@ -122,8 +122,9 @@ def procesar(consulta):
     elif tipo == "Q5":
         resultado = q5_confidence_dist(zona, bins)
 
-    r.rpush(f"{modo}:latencies", (time.perf_counter() - t0) * 1000)
-    r.rpush(f"{modo}:timestamps", time.time())
+    # Las métricas de latencia end-to-end las registra el consumer (principal.py / reintentos.py),
+    # no el engine. El engine solo guarda el resultado en caché.
+    _ = time.perf_counter() - t0   # tiempo de cómputo interno (no se mezcla con latencias del consumer)
 
     padding = "x"*15360        # 15 KB 
     payload = {
