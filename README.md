@@ -1,38 +1,46 @@
-# Tarea 1: sistemas distribuidos
+# Tarea 2: sistemas distribuidos
 **Autores**: Enzo Rodriguez y Alonso Iturra
-Este proyecto es un simulador de caché que evalúa el rendimiento de diferentes tamaños de cache y políticas de reemplazo (**LFU** y **LRU**), siguiendo 2 tipos de distribuciones de consultas (Uniforme y Zipf).
+Este proyecto es un sistema con procesamiento de consultas y Fallback con Apache Kafka en Internet, el cual evalúa el rendimiento de diferentes métricas en distintos escenarios posbiles dentro de la realidad.
 Antes de empezar, es necesario tener:
 -  Git
 -  Docker
+-  Kafka
+-  Zookeeper
 -  Bash
 ## Paso 1: Clonar el repositorio
 En cualquier carpeta correr:
 ```bash
-git clone https://github.com/HonryQuinn/Tarea1_SistemasDistribuidos.git
-cd Tarea1_SistemasDistribuidos/
+git clone https://github.com/HonryQuinn/Tarea2_SistemasDistribuidos.git
+cd Tarea2_SistemasDistribuidos/
 ``` 
 ## Paso 2: Añadir dataset
 Una vez descargado el repositorio se debería ver la siguiente estructura:
  ```
 .
+├── consumidores
+│   ├── dlq.py
+│   ├── Dockerfile
+│   ├── principal.py
+│   └── reintentos.py
 ├── dataset
-│   └── buildings.csv  <-- Aquí debe ir el dataset!
+│   └── buildings.csv
 ├── docker-compose.yml
 ├── metricas
-│   ├── Dockerfile
-│   └── metricas.py
+│   ├── Dockerfile
+│   └── metricas.py
+├── ps
+├── README.md
 ├── respuestas
-│   ├── data
-│   ├── Dockerfile
-│   └── engine.py
-├── resultados   <-- Aquí se generan los reportes
+│   ├── Dockerfile
+│   └── engine.py
+├── resultados
 ├── run.sh
+├── test_e5.sh
 └── trafico
     ├── Dockerfile
     └── main.py
+
 ```
-**Importante**: el dataset debe estar descomprimido y en la ruta dataset, debería verse como en la estructura anterior.
-El código avisa si encuentra o no el dataset
 ## Paso 3: Correr simulación
 Para iniciar el proceso de pruebas automáticas, ejecuta el script principal con privilegios de administrador:
 ```bash
