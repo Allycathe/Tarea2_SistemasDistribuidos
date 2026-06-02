@@ -50,8 +50,11 @@ def imprimir_resumen(modo):
     # Throughput
     timestamps = [float(t) for t in r.lrange(f"{modo}:timestamps", 0, -1)]
     now    = time.time()
-    recent = [t for t in timestamps if t >= now - 60]
-    throughput = len(recent) / 60
+    if len(timestamps) > 1:
+        duracion = max(timestamps) - min(timestamps)
+        throughput = len(timestamps) / duracion if duracion > 0 else 0
+    else:
+        throughput = 0
 
     # Eviction rate
     evs_first = r.lindex(f"{modo}:evictions", 0)

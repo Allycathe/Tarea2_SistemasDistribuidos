@@ -147,7 +147,9 @@ def ejecutar_simulacion(modo):
             zona = random.choice(ZONAS)
 
         tipo = random.choice(CONSULTAS)
-        conf = round(random.uniform(0.0, 0.9), 2) # con esto me da 900 valores posibles de conf, que genra 28.000 claves únicas totales
+        
+        decimales = int(os.getenv("CONF_DECIMALES", 2))
+        conf = round(random.uniform(0.0, 0.9), decimales)# con esto me da 900 valores posibles de conf, que genra 28.000 claves únicas totales
 
         zona_b = bins = None
         if tipo == "Q1":

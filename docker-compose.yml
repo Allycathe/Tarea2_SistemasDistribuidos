@@ -170,6 +170,7 @@ services:
       - SPIKE_DELAY_MS=${SPIKE_DELAY_MS:-1}
       - MODO_TRANSPORTE=${MODO_TRANSPORTE:-kafka}
       - FORCE_COLOR=1
+      - CONF_DECIMALES=${CONF_DECIMALES:-2}
     networks:
       - app-network
     depends_on:

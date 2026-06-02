@@ -255,17 +255,19 @@ done
 ok "Escenario 4 completado"
 
 # Escenario 5: reintentos con falla_rate
-
+export CONF_DECIMALES=4 # para generar más claves únicas y forzar más misses, lo que hace que los reintentos tengan más chances de entrar en acción, especialmente con altos falla_rate
 separador
 header "ESCENARIO 5 — Reintentos con FALLA_RATE"
 
 for falla_rate in "${FALLA_RATES[@]}"; do
     for n_consumers in "${CONSUMERS_E5[@]}"; do
         paso "Levantando infraestructura | FALLA_RATE=$falla_rate | consumers=$n_consumers..."
-        FALLA_RATE=$falla_rate docker compose up -d \
+        export FALLA_RATE=$falla_rate
+        docker compose up -d \
             cache zookeeper kafka kafka-setup generador_respuestas consumer_retry consumer_dlq kafka-ui
         docker compose up -d --scale consumer=$n_consumers consumer
         sleep 30
+
 
         paso "Corriendo tráfico con FALLA_RATE=$falla_rate | $n_consumers consumers..."
         docker compose run --rm \
@@ -283,7 +285,7 @@ for falla_rate in "${FALLA_RATES[@]}"; do
 done
 ok "Escenario 5 completado"
 
-
+export CONF_DECIMALES=2 # volver a 2 decimales para escenario 6 y 7, para no generar tantas claves únicas y que el spike tenga más impacto en el cache y en los reintentos
 # Escenario 6: Spike de consultas
 
 separador
