@@ -91,4 +91,5 @@ for falla_rate in "${FALLA_RATES[@]}"; do
 done
 
 export CONF_DECIMALES=2
+export FALLA_RATE=0.0 # se guardaba en la shell, afectando los otros casos
 ok "Escenario 5 completado"

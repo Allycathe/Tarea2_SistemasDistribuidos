@@ -285,7 +285,9 @@ for falla_rate in "${FALLA_RATES[@]}"; do
 done
 ok "Escenario 5 completado"
 
+export FALLA_RATE=0.0 # se guardaba en la shell, afectando los otros casos
 export CONF_DECIMALES=2 # volver a 2 decimales para escenario 6 y 7, para no generar tantas claves únicas y que el spike tenga más impacto en el cache y en los reintentos
+
 # Escenario 6: Spike de consultas
 
 separador
