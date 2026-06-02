@@ -84,11 +84,8 @@ def _publicar_kafka(key, tipo, zona, conf, modo, zona_b, bins):
 
 
 def _publicar_sincrono(key, tipo, zona, conf, modo, zona_b, bins):
-    """
-    Modo síncrono — Escenario 1 (sin Kafka).
-    Consulta Redis directamente y, en caso de miss, espera al engine.
-    Registra hits, misses y latencia end-to-end en Redis.
-    """
+    #Modo síncrono — Escenario 1 (sin Kafka), consulta Redis directamente y, en caso de miss, espera al engine, registra hits, misses y latencia end-to-end en Redis.
+
     t0        = time.perf_counter()
     respuesta = r.get(key)
     latencia  = (time.perf_counter() - t0) * 1000
@@ -150,7 +147,7 @@ def ejecutar_simulacion(modo):
             zona = random.choice(ZONAS)
 
         tipo = random.choice(CONSULTAS)
-        conf = round(random.uniform(0.0, 0.9), 4)
+        conf = round(random.uniform(0.0, 0.9), 2) # con esto me da 900 valores posibles de conf, que genra 28.000 claves únicas totales
 
         zona_b = bins = None
         if tipo == "Q1":

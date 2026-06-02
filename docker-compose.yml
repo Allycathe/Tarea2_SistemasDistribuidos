@@ -55,10 +55,12 @@ services:
       - app-network
     restart: on-failure
 
+# caso base a usar: 50 mb, 60 ttl , lfu padding 2024 
+
   cache:
     image: redis:7.2-alpine
     container_name: sistema_cache
-    command: redis-server --maxmemory ${REDIS_MAX_MEMORY:-200mb} --maxmemory-policy ${REDIS_POLICY:-allkeys-lru}
+    command: redis-server --maxmemory ${REDIS_MAX_MEMORY:-200mb} --maxmemory-policy ${REDIS_POLICY:-allkeys-lru} #tamaño del caché y política de expulsión configurables (tamaño de caché y politica de expulsión configurables)
     ports:
       - "6379:6379"
     networks:

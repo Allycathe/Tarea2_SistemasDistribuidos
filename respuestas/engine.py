@@ -126,7 +126,7 @@ def procesar(consulta):
     # no el engine. El engine solo guarda el resultado en caché.
     _ = time.perf_counter() - t0   # tiempo de cómputo interno (no se mezcla con latencias del consumer)
 
-    padding = "x"*15360        # 15 KB 
+    padding = "x"*81920        # 15 KB no se que padding poner
     payload = {
         "resultado": resultado,
         "padding": padding

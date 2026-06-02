@@ -16,43 +16,10 @@ r = redis.Redis(
     decode_responses=True
 )
 
-
-def obtener_backlog(topic="consultas-principales", group_id="grupo-consumidores"):
-    """
-    Calcula el lag real del consumer group: mensajes publicados − mensajes procesados.
-    committed() devuelve None si el grupo aún no hizo commit en esa partición;
-    en ese caso asumimos lag = 0 (grupo al día, sin pendientes reales).
-    """
-    try:
-        tmp = KafkaConsumer(
-            bootstrap_servers=os.getenv("KAFKA_HOST", "kafka:9092"),
-            group_id=group_id,
-            enable_auto_commit=False
-        )
-        partitions = tmp.partitions_for_topic(topic)
-        if not partitions:
-            tmp.close()
-            return 0
-
-        tps = [TopicPartition(topic, p) for p in partitions]
-        tmp.assign(tps)
-        end_offsets = tmp.end_offsets(tps)
-
-        lag_total = 0
-        for tp in tps:
-            committed = tmp.committed(tp)   # None si el grupo nunca hizo commit
-            end       = end_offsets[tp]
-            # Si committed es None el grupo no tiene mensajes pendientes reales
-            if committed is None:
-                committed = end
-            lag_total += max(0, end - committed)
-
-        tmp.close()
-        return lag_total
-    except Exception as e:
-        console.print(f"[dim red]No se pudo leer backlog de Kafka: {e}[/dim red]")
-        return 0
-
+def obtener_backlog(modo):
+    #lee el backlog máx registrado durante la ejecución, el monitor en run.sh va guardando el lag en redis cada 3s
+    peak = r.get(f"{modo}:backlog_peak")
+    return int(peak) if peak else 0
 
 def imprimir_resumen(modo):
     # Métricas de caché
@@ -60,11 +27,12 @@ def imprimir_resumen(modo):
     misses = int(r.get(f"{modo}:misses") or 0)
     total  = hits + misses
 
-    # Métricas de resiliencia Kafka
+    # Métricas de Kafka
     retries    = int(r.get(f"{modo}:retry_count")     or 0)
     recoveries = int(r.get(f"{modo}:recovered_count") or 0)
     dlq        = int(r.get(f"{modo}:dlq_count")       or 0)
-    backlog    = obtener_backlog("consultas-principales", "grupo-consumidores")
+    backlog    = obtener_backlog(modo)
+    recovery_time = int(r.get(f"{modo}:recovery_time") or 0)
 
     # Tasas
     hit_rate      = round((hits      / total)   * 100, 2) if total   > 0 else 0
@@ -109,6 +77,7 @@ def imprimir_resumen(modo):
         f.write(f"Retry Rate: {retry_rate}% | Recovery Rate: {recovery_rate}% | DLQ Rate: {dlq_rate}%\n")
         f.write(f"Latencia p50: {p50} ms | p95: {p95} ms\n")
         f.write(f"Throughput: {throughput} qps\n")
+        f.write(f"Recovery Time: {recovery_time}s\n")
         f.write(f"Eviction Rate: {eviction_rate} ev/min\n")
         f.write("-" * 30 + "\n")
 
@@ -131,7 +100,8 @@ def imprimir_resumen(modo):
     table.add_row("[yellow]Retry Rate[/yellow]",        f"[yellow]{retry_rate}%[/yellow]")
     table.add_row("[green]Recovery Rate[/green]",       f"[green]{recovery_rate}%[/green]")
     table.add_row("[red]DLQ Rate[/red]",                f"[red]{dlq_rate}%[/red]")
-    table.add_row("[cyan]Backlog Size (Lag)[/cyan]",    f"[cyan]{backlog} msgs[/cyan]")
+    table.add_row("[cyan]Backlog peak[/cyan]",    f"[cyan]{backlog} msgs[/cyan]")
+    table.add_row("[magenta]Recovery Time[/magenta]",    f"[magenta]{recovery_time}s[/magenta]")
 
     console.print(Panel(table, expand=False, border_style="bright_blue"))
     return filename
