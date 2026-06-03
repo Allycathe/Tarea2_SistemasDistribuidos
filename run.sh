@@ -226,33 +226,68 @@ for tiempo_falla in "${TIEMPOS_FALLA[@]}"; do
         -e DELAY_MS=$DELAY_MS \
         generador_trafico
 
-    sleep 15
+    #historial de lag durante la caída, para ver cómo crece el backlog en Kafka, y registrar el peak en Redis para cada tiempo de falla
+    csv_file="resultados/lag_historico_${tiempo_falla}s.csv"
+    echo "t,lag,fase" > "$csv_file"
+    t0=$(date +%s)
+
+    # Fase normal: grabar lag mientras llega tráfico antes de caer
+    deadline_pre=$(( $(date +%s) + 15 ))
+    while [ $(date +%s) -lt $deadline_pre ]; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,normal" >> "$csv_file"
+        sleep 3
+    done
     warn "Simulando caída del engine (${tiempo_falla} segundos)..."
     docker stop servicio_respuestas
     echo -e "${RED}  ✗ Engine caído — backlog creciendo en Kafka${NC}"
 
-    # Registrar peak de backlog mientras el engine está caído
+
     deadline=$(( $(date +%s) + tiempo_falla ))
     while [ $(date +%s) -lt $deadline ]; do
         lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,caida" >> "$csv_file"
         if [ -n "$lag" ] && [ "$lag" -gt 0 ] 2>/dev/null; then
             docker exec sistema_cache redis-cli \
                 eval "local cur=tonumber(redis.call('get',KEYS[1]) or 0); if tonumber(ARGV[1])>cur then redis.call('set',KEYS[1],ARGV[1]) end" \
                 1 "uniforme:backlog_peak" "$lag" > /dev/null 2>&1
         fi
-        echo "  Engine caído — Backlog: $lag msgs"
+        echo "  Engine caído — Backlog: $lag msgs | t=${t}s"
         sleep 3
     done
-
+ 
     paso "Recuperando engine..."
     docker start servicio_respuestas
-    ok "Engine recuperado - midiendo recovery time..."
-    medir_recovery_time uniforme 300
+    ok "Engine recuperado — midiendo recovery time y grabando historial..."
+ 
+    # Grabar lag durante la recuperación hasta llegar a 0
+    max_recovery=300
+    inicio_recovery=$(date +%s)
+    while true; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,recuperacion" >> "$csv_file"
+        [ "$lag" = "0" ] && break
+        transcurrido=$(( $(date +%s) - inicio_recovery ))
+        [ $transcurrido -ge $max_recovery ] && break
+        echo "  Recovery: $lag msgs | t=${t}s"
+        sleep 3
+    done
+ 
+    # Guardar recovery time en Redis
+    fin=$(date +%s)
+    recovery=$(( fin - inicio_recovery ))
+    docker exec sistema_cache redis-cli set "uniforme:recovery_time" "$recovery" > /dev/null
+    ok "Recovery time: ${recovery}s — historial guardado en $csv_file"
+ 
     guardar_metricas "caso4_falla_${tiempo_falla}s" "uniforme"
     docker compose down -v
     sleep 5
 done
 ok "Escenario 4 completado"
+
 
 # Escenario 5: reintentos con falla_rate
 export CONF_DECIMALES=4 # para generar más claves únicas y forzar más misses, lo que hace que los reintentos tengan más chances de entrar en acción, especialmente con altos falla_rate

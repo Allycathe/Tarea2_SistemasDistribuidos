@@ -1,0 +1,33 @@
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 1123 | Misses: 1377 | Backlog: 1898
+Hit Rate: 44.92%
+Retry Rate: 0.56% | Recovery Rate: 7.14% | DLQ Rate: 0.48%
+Latencia p50: 51.430336000066745 ms | p95: 53.0883389999417 ms
+Throughput: 22.245977228558775 qps
+Recovery Time: 76s
+Eviction Rate: 0.0 ev/min
+------------------------------
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 1144 | Misses: 1356 | Backlog: 0
+Hit Rate: 45.76%
+Retry Rate: 0.56% | Recovery Rate: 7.14% | DLQ Rate: 0.48%
+Latencia p50: 51.413605999186984 ms | p95: 52.98365999988164 ms
+Throughput: 22.149303484521276 qps
+Recovery Time: 75s
+Eviction Rate: 0.0 ev/min
+------------------------------
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 1125 | Misses: 1375 | Backlog: 1901
+Hit Rate: 45.0%
+Retry Rate: 0.56% | Recovery Rate: 0.0% | DLQ Rate: 0.56%
+Latencia p50: 51.401516999249 ms | p95: 53.09050399955595 ms
+Throughput: 21.84151247408263 qps
+Recovery Time: 76s
+Eviction Rate: 0.0 ev/min
+------------------------------
