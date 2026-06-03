@@ -4,9 +4,9 @@ N_PEDIDOS=2500
 DELAY_MS=5
 TIEMPOS_FALLA=(10 30 50)
 
-paso()  { echo -e "\033[0;34m▶\033[0m \033[1m$1\033[0m"; }
-ok()    { echo -e "\033[0;32m✔\033[0m $1"; }
-warn()  { echo -e "\033[1;33m⚠\033[0m $1"; }
+paso()  { echo -e "\033[0;34\033[0m \033[1m$1\033[0m"; }
+ok()    { echo -e "\033[0;32\033[0m $1"; }
+warn()  { echo -e "\033[1;33\033[0m $1"; }
 
 obtener_lag(){
     docker exec kafka kafka-consumer-groups \

@@ -9,3 +9,14 @@ Throughput: 81.8113570744101 qps
 Recovery Time: 0s
 Eviction Rate: 0.0 ev/min
 ------------------------------
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 1093 | Misses: 1407 | Backlog: 1354
+Hit Rate: 43.72%
+Retry Rate: 0.0% | Recovery Rate: 0% | DLQ Rate: 0.0%
+Latencia p50: 52.794951000578294 ms | p95: 53.719991000434675 ms
+Throughput: 75.65822339039705 qps
+Recovery Time: 0s
+Eviction Rate: 0.0 ev/min
+------------------------------

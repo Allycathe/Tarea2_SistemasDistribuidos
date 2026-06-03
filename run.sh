@@ -187,7 +187,6 @@ ok "Escenario 2 completado"
 
 separador
 header "ESCENARIO 3 — Kafka + Múltiples Consumers"
-
 for n_consumers in "${CONSUMERS_E3[@]}"; do
     paso "Levantando infraestructura con $n_consumers consumers..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer_retry consumer_dlq kafka-ui
@@ -213,7 +212,6 @@ ok "Escenario 3 completado"
 
 separador
 header "ESCENARIO 4 — Falla Temporal del Engine"
-
 for tiempo_falla in "${TIEMPOS_FALLA[@]}"; do
     paso "Levantando infraestructura | caída de ${tiempo_falla}s..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer consumer_retry consumer_dlq kafka-ui
@@ -293,7 +291,6 @@ ok "Escenario 4 completado"
 export CONF_DECIMALES=4 # para generar más claves únicas y forzar más misses, lo que hace que los reintentos tengan más chances de entrar en acción, especialmente con altos falla_rate
 separador
 header "ESCENARIO 5 — Reintentos con FALLA_RATE"
-
 for falla_rate in "${FALLA_RATES[@]}"; do
     for n_consumers in "${CONSUMERS_E5[@]}"; do
         paso "Levantando infraestructura | FALLA_RATE=$falla_rate | consumers=$n_consumers..."
@@ -324,10 +321,8 @@ export FALLA_RATE=0.0 # se guardaba en la shell, afectando los otros casos
 export CONF_DECIMALES=2 # volver a 2 decimales para escenario 6 y 7, para no generar tantas claves únicas y que el spike tenga más impacto en el cache y en los reintentos
 
 # Escenario 6: Spike de consultas
-
 separador
 header "ESCENARIO 6 — Spike de Tráfico"
-
 for n_consumers in "${CONSUMERS_E6[@]}"; do
     paso "Levantando infraestructura | spike | $n_consumers consumers..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer_retry consumer_dlq kafka-ui
@@ -341,10 +336,24 @@ for n_consumers in "${CONSUMERS_E6[@]}"; do
         -e DELAY_MS=$DELAY_MS \
         -e SPIKE_ENABLED=true \
         -e SPIKE_EN_PEDIDO=$(( N_PEDIDOS / 2 )) \
-        -e SPIKE_DURACION=$(( N_PEDIDOS / 5 )) \
+        #-e SPIKE_DURACION=$(( N_PEDIDOS / 5 )) \  este spike -> spike dura 500 consultas, luego vuelve a la latencia normal, pero dura muy poco 
+        -e SPIKE_DURACION=800 # 800 consultas durante el spike \ 
         -e SPIKE_DELAY_MS=1 \
         generador_trafico
-    esperar_backlog 180 
+
+    csv_file="resultados/lag_historico_spike${n_consumers}consumers.csv"
+    echo "t,lag,fase" > "$csv_file"
+    t0=$(date +%s)
+
+        # Fase normal: grabar lag mientras llega tráfico antes de caer
+    deadline_pre=$(( $(date +%s) + 15 ))
+    while [ $(date +%s) -lt $deadline_pre ]; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,normal" >> "$csv_file"
+        sleep 3
+    done
+ 
     guardar_metricas "caso6_spike_${n_consumers}consumers" "uniforme"
     limpiar_redis
 
@@ -376,7 +385,6 @@ docker stop servicio_respuestas
 sleep 20
 docker start servicio_respuestas
 sleep 10
-
 guardar_metricas "caso7a_recuperacion_sincrono" "uniforme"
 limpiar_redis
 docker compose down -v
@@ -421,7 +429,6 @@ for n_consumers in "${CONSUMERS_E7[@]}"; do
 done
 ok "Escenario 7 completado"
 
-# ─────────────────────────────────────────────────────────────────────────────
 separador
 header "TODOS LOS EXPERIMENTOS COMPLETADOS"
 echo -e "${GREEN}Los resultados están en: ${BOLD}./resultados/${NC}"
