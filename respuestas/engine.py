@@ -9,12 +9,14 @@ from statistics import mean
 from rich.console import Console
 from rich.status import Status
 from rich.panel import Panel
+import random
 
 console = Console()
 
+FALLA_RATE = float(os.getenv("FALLA_RATE", 0.0))
+
 print("Iniciando engine.py...")
- #cambie el host a "cache" para que se conecte al contenedor de redis, pero tiene que ir cache que es el nombre del servicio en el compose
-r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),port=int(os.getenv("REDIS_PORT", 6379)),decode_responses=True)
+r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"), port=int(os.getenv("REDIS_PORT", 6379)), decode_responses=True)
 
 ZONAS = {
     "Z1": {"lat_min": -33.445, "lat_max": -33.420, "lon_min": -70.640, "lon_max": -70.600},
@@ -24,7 +26,6 @@ ZONAS = {
     "Z5": {"lat_min": -33.470, "lat_max": -33.430, "lon_min": -70.810, "lon_max": -70.760},
 }
 
-# calcular para la consulta q3
 zone_area_km2 = {}
 for zona_id, bbox in ZONAS.items():
     lat_km = (bbox["lat_max"] - bbox["lat_min"]) * 111
@@ -32,44 +33,34 @@ for zona_id, bbox in ZONAS.items():
     zone_area_km2[zona_id] = lat_km * lon_km
 
 data = {}
-
 picos = namedtuple("picos", ["latitude", "longitude", "area", "confidence"])
 
 def cargar_datos():
     with console.status("[bold yellow]Cargando y filtrando subconjunto de Santiago...", spinner="point"):
-        ruta = os.getenv("DATASET_PATH", "../dataset/buildings.csv") #
-        df = pd.read_csv(ruta) #
+        ruta = os.getenv("DATASET_PATH", "../dataset/buildings.csv")
+        df = pd.read_csv(ruta)
 
-        #Definimos los límites globales basados en la tabla del PDF (Z1 a Z5)
-        # Estos valores cubren desde Maipú hasta Las Condes y desde Pudahuel hasta Providencia
-        lat_min, lat_max = -33.530, -33.390 # [cite: 95]
-        lon_min, lon_max = -70.810, -70.550 # [cite: 95]
+        lat_min, lat_max = -33.530, -33.390
+        lon_min, lon_max = -70.810, -70.550
 
-        # 3. Creamos un subconjunto que solo contenga los edificios de Santiago
-        # Esto reduce el dataset de millones a solo los necesarios para la tarea
         df_santiago = df[
             (df["latitude"]  >= lat_min) & (df["latitude"]  <= lat_max) &
             (df["longitude"] >= lon_min) & (df["longitude"] <= lon_max)
-        ].copy() #
+        ].copy()
 
         datos_por_zona = {}
-        for zona_id, bbox in ZONAS.items(): #
-            # 4. Ahora filtramos sobre el subconjunto pequeño, lo cual es mucho más rápido
+        for zona_id, bbox in ZONAS.items():
             filtrado = df_santiago[
                 (df_santiago["latitude"]  >= bbox["lat_min"]) & (df_santiago["latitude"]  <= bbox["lat_max"]) &
                 (df_santiago["longitude"] >= bbox["lon_min"]) & (df_santiago["longitude"] <= bbox["lon_max"])
-            ] #
-            
+            ]
             datos_por_zona[zona_id] = [
                 picos(row.latitude, row.longitude, row.area_in_meters, row.confidence)
                 for row in filtrado.itertuples()
-            ] #
-            
-    # Al finalizar, informamos cuántos edificios quedaron en las zonas de estudio
-    console.print(f"[bold green] Subconjunto cargado: {len(df_santiago)} edificios en las 5 zonas.[/bold green]")
-    return datos_por_zona #
+            ]
 
-#consultas 
+    console.print(f"[bold green] Subconjunto cargado: {len(df_santiago)} edificios en las 5 zonas.[/bold green]")
+    return datos_por_zona
 
 def q1_count(zone_id, confidence_min=0.0):
     records = data[zone_id]
@@ -102,12 +93,12 @@ def procesar(consulta):
     zona           = consulta["zona"]
     zona_b         = consulta.get("zona_b")
     confidence_min = consulta.get("confidence_min", 0.0)
-    bins = consulta.get("bins", 5)
+    bins           = consulta.get("bins", 5)
     if bins is None:
         bins = 5
-    bins = int(bins)
-    modo = consulta.get("modo", "uniforme")
-    cache_key      = consulta["cache_key"]
+    bins      = int(bins)
+    modo      = consulta.get("modo", "uniforme")
+    cache_key = consulta["cache_key"]
 
     t0 = time.perf_counter()
 
@@ -122,16 +113,12 @@ def procesar(consulta):
     elif tipo == "Q5":
         resultado = q5_confidence_dist(zona, bins)
 
-    r.rpush(f"{modo}:latencies", (time.perf_counter() - t0) * 1000)
-    r.rpush(f"{modo}:timestamps", time.time())
+    _ = time.perf_counter() - t0
 
-    padding = "x"*15360        # 15 KB 
-    payload = {
-        "resultado": resultado,
-        "padding": padding
-    }
+    padding = "x" * 81920
+    payload = {"resultado": resultado, "padding": padding}
 
-    r.set(cache_key, json.dumps(payload), ex=3600)  # TTL de 1 hora para evitar que la cache se llene con datos antiguos
+    r.set(cache_key, json.dumps(payload), ex=3600)
     print(f"Calculado y guardado | {cache_key}")
 
 def esperar_redis():
@@ -150,12 +137,18 @@ def main():
     global data
     data = cargar_datos()
 
-    r.set("status:engine_ready","1") # Indicamos al tráfico que el engine está listo para recibir consultas
+    r.set("status:engine_ready", "1")
     console.print(Panel("[bold cyan]MOTOR DE RESPUESTAS ONLINE[/bold cyan]\n[dim]Escuchando cola:consultas...[/dim]", border_style="cyan"))
+
     while True:
         try:
             resultado = r.blpop("cola:consultas", timeout=30)
             if resultado is None:
+                continue
+
+            # Simulación de falla aleatoria
+            if FALLA_RATE > 0 and random.random() < FALLA_RATE:
+                console.print("[bold red] Fallo simulado[/bold red] — consulta descartada")
                 continue
 
             mensaje_crudo = resultado[1]
