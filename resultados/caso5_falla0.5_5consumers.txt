@@ -1,0 +1,11 @@
+
+SIMULACION: UNIFORME
+------------------------------
+Hits: 62 | Misses: 310 | Backlog: 2490
+Hit Rate: 16.67%
+Retry Rate: 59.95% | Recovery Rate: 39.46% | DLQ Rate: 12.9%
+Latencia p50: 52.21369200080517 ms | p95: 102.29899900150485 ms
+Throughput: 1.4815869786847389 qps
+Recovery Time: 0s
+Eviction Rate: 0.0 ev/min
+------------------------------
