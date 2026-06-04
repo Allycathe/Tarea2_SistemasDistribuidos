@@ -187,7 +187,6 @@ ok "Escenario 2 completado"
 
 separador
 header "ESCENARIO 3 — Kafka + Múltiples Consumers"
-
 for n_consumers in "${CONSUMERS_E3[@]}"; do
     paso "Levantando infraestructura con $n_consumers consumers..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer_retry consumer_dlq kafka-ui
@@ -213,7 +212,6 @@ ok "Escenario 3 completado"
 
 separador
 header "ESCENARIO 4 — Falla Temporal del Engine"
-
 for tiempo_falla in "${TIEMPOS_FALLA[@]}"; do
     paso "Levantando infraestructura | caída de ${tiempo_falla}s..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer consumer_retry consumer_dlq kafka-ui
@@ -226,39 +224,73 @@ for tiempo_falla in "${TIEMPOS_FALLA[@]}"; do
         -e DELAY_MS=$DELAY_MS \
         generador_trafico
 
-    sleep 15
+    #historial de lag durante la caída, para ver cómo crece el backlog en Kafka, y registrar el peak en Redis para cada tiempo de falla
+    csv_file="resultados/lag_historico_${tiempo_falla}s.csv"
+    echo "t,lag,fase" > "$csv_file"
+    t0=$(date +%s)
+
+    # Fase normal: grabar lag mientras llega tráfico antes de caer
+    deadline_pre=$(( $(date +%s) + 15 ))
+    while [ $(date +%s) -lt $deadline_pre ]; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,normal" >> "$csv_file"
+        sleep 3
+    done
     warn "Simulando caída del engine (${tiempo_falla} segundos)..."
     docker stop servicio_respuestas
     echo -e "${RED}  ✗ Engine caído — backlog creciendo en Kafka${NC}"
 
-    # Registrar peak de backlog mientras el engine está caído
+
     deadline=$(( $(date +%s) + tiempo_falla ))
     while [ $(date +%s) -lt $deadline ]; do
         lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,caida" >> "$csv_file"
         if [ -n "$lag" ] && [ "$lag" -gt 0 ] 2>/dev/null; then
             docker exec sistema_cache redis-cli \
                 eval "local cur=tonumber(redis.call('get',KEYS[1]) or 0); if tonumber(ARGV[1])>cur then redis.call('set',KEYS[1],ARGV[1]) end" \
                 1 "uniforme:backlog_peak" "$lag" > /dev/null 2>&1
         fi
-        echo "  Engine caído — Backlog: $lag msgs"
+        echo "  Engine caído — Backlog: $lag msgs | t=${t}s"
         sleep 3
     done
-
+ 
     paso "Recuperando engine..."
     docker start servicio_respuestas
-    ok "Engine recuperado - midiendo recovery time..."
-    medir_recovery_time uniforme 300
+    ok "Engine recuperado — midiendo recovery time y grabando historial..."
+ 
+    # Grabar lag durante la recuperación hasta llegar a 0
+    max_recovery=300
+    inicio_recovery=$(date +%s)
+    while true; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag,recuperacion" >> "$csv_file"
+        [ "$lag" = "0" ] && break
+        transcurrido=$(( $(date +%s) - inicio_recovery ))
+        [ $transcurrido -ge $max_recovery ] && break
+        echo "  Recovery: $lag msgs | t=${t}s"
+        sleep 3
+    done
+ 
+    # Guardar recovery time en Redis
+    fin=$(date +%s)
+    recovery=$(( fin - inicio_recovery ))
+    docker exec sistema_cache redis-cli set "uniforme:recovery_time" "$recovery" > /dev/null
+    ok "Recovery time: ${recovery}s — historial guardado en $csv_file"
+ 
     guardar_metricas "caso4_falla_${tiempo_falla}s" "uniforme"
     docker compose down -v
     sleep 5
 done
 ok "Escenario 4 completado"
 
+
 # Escenario 5: reintentos con falla_rate
 export CONF_DECIMALES=4 # para generar más claves únicas y forzar más misses, lo que hace que los reintentos tengan más chances de entrar en acción, especialmente con altos falla_rate
 separador
 header "ESCENARIO 5 — Reintentos con FALLA_RATE"
-
 for falla_rate in "${FALLA_RATES[@]}"; do
     for n_consumers in "${CONSUMERS_E5[@]}"; do
         paso "Levantando infraestructura | FALLA_RATE=$falla_rate | consumers=$n_consumers..."
@@ -289,10 +321,8 @@ export FALLA_RATE=0.0 # se guardaba en la shell, afectando los otros casos
 export CONF_DECIMALES=2 # volver a 2 decimales para escenario 6 y 7, para no generar tantas claves únicas y que el spike tenga más impacto en el cache y en los reintentos
 
 # Escenario 6: Spike de consultas
-
 separador
 header "ESCENARIO 6 — Spike de Tráfico"
-
 for n_consumers in "${CONSUMERS_E6[@]}"; do
     paso "Levantando infraestructura | spike | $n_consumers consumers..."
     docker compose up -d cache zookeeper kafka kafka-setup generador_respuestas consumer_retry consumer_dlq kafka-ui
@@ -300,19 +330,35 @@ for n_consumers in "${CONSUMERS_E6[@]}"; do
     sleep 30
 
     paso "Corriendo tráfico con spike | $n_consumers consumers..."
-    docker compose run --rm \
+    docker compose run --rm -d \
         -e SIMULATION_MODE=uniforme \
         -e N_PEDIDOS=$N_PEDIDOS \
         -e DELAY_MS=$DELAY_MS \
         -e SPIKE_ENABLED=true \
         -e SPIKE_EN_PEDIDO=$(( N_PEDIDOS / 2 )) \
-        -e SPIKE_DURACION=$(( N_PEDIDOS / 5 )) \
+        -e SPIKE_DURACION=800 \
         -e SPIKE_DELAY_MS=1 \
         generador_trafico
-    esperar_backlog 180 
+
+    csv_file="resultados/lag_historico_spike_${n_consumers}consumers.csv"
+    echo "t,lag" > "$csv_file"
+    t0=$(date +%s)
+
+    esperar_backlog 180 uniforme &
+    WAIT_PID=$!
+
+    while kill -0 $WAIT_PID 2>/dev/null; do
+        lag=$(obtener_lag)
+        t=$(( $(date +%s) - t0 ))
+        echo "$t,$lag" >> "$csv_file"
+        sleep 3
+    done
+
+    wait $WAIT_PID
+    ok "Historial guardado en $csv_file"
+
     guardar_metricas "caso6_spike_${n_consumers}consumers" "uniforme"
     limpiar_redis
-
     docker compose down -v
     sleep 5
 done
@@ -341,7 +387,6 @@ docker stop servicio_respuestas
 sleep 20
 docker start servicio_respuestas
 sleep 10
-
 guardar_metricas "caso7a_recuperacion_sincrono" "uniforme"
 limpiar_redis
 docker compose down -v
@@ -386,7 +431,6 @@ for n_consumers in "${CONSUMERS_E7[@]}"; do
 done
 ok "Escenario 7 completado"
 
-# ─────────────────────────────────────────────────────────────────────────────
 separador
 header "TODOS LOS EXPERIMENTOS COMPLETADOS"
 echo -e "${GREEN}Los resultados están en: ${BOLD}./resultados/${NC}"

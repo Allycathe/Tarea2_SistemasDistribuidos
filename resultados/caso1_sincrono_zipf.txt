@@ -1,0 +1,11 @@
+
+SIMULACION: ZIPF
+------------------------------
+Hits: 1185 | Misses: 1315 | Backlog: 0
+Hit Rate: 47.4%
+Retry Rate: 0.0% | Recovery Rate: 0% | DLQ Rate: 0.0%
+Latencia p50: 51.7530660000034 ms | p95: 52.97704099996281 ms
+Throughput: 29.231290211454308 qps
+Recovery Time: 0s
+Eviction Rate: 0.0 ev/min
+------------------------------
