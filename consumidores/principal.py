@@ -45,7 +45,7 @@ def manejar_fallo(mensaje):
             value=json.dumps(mensaje).encode()
         )
         r.incr(f"{modo}:dlq_count")
-        console.print(f"  [bold red]✗ DLQ[/bold red]        [dim]{key}[/dim] [red](agotó {mensaje['retry_count']} intentos)[/red]")
+        console.print(f"  [bold white]✗ DLQ[/bold white]        [dim]{key}[/dim] [white](agotó {mensaje['retry_count']} intentos)[/white]")
     else:
         producer.send(
             "consultas-reintento",
@@ -53,13 +53,13 @@ def manejar_fallo(mensaje):
             value=json.dumps(mensaje).encode()
         )
         r.incr(f"{modo}:retry_count")
-        console.print(f"  [bold yellow]↩ REINTENTO {mensaje['retry_count']}[/bold yellow]  [dim]{key}[/dim]")
+        console.print(f"  [bold white]↩ REINTENTO {mensaje['retry_count']}[/bold white]  [dim]{key}[/dim]")
 
 
 console.print(Panel(
-    "[bold cyan]CONSUMER PRINCIPAL ONLINE[/bold cyan]\n"
+    "[bold white]CONSUMER PRINCIPAL ONLINE[/bold white]\n"
     f"[dim]Escuchando: consultas-principales | MAX_REINTENTOS={MAX_REINTENTOS}[/dim]",
-    border_style="cyan"
+    border_style="white"
 ))
 
 for msg in consumer:
@@ -77,12 +77,12 @@ for msg in consumer:
             r.incr(f"{modo}:hits")
             r.rpush(f"{modo}:latencies",  latencia)
             r.rpush(f"{modo}:timestamps", time.time())
-            console.print(f"  [bold green]✓ HIT[/bold green]         [white]{key}[/white] [green]({latencia:.2f}ms)[/green]")
+            console.print(f"  [bold white]✓ HIT[/bold white]         [white]{key}[/white] [white]({latencia:.2f}ms)[/white]")
         else:
             # Cache miss: delega al engine y ESPERA la respuesta
             r.incr(f"{modo}:misses")
             r.lpush("cola:consultas", json.dumps(mensaje))
-            console.print(f"  [bold yellow]· MISS[/bold yellow]        [white]{key}[/white] → engine")
+            console.print(f"  [bold white]· MISS[/bold white]        [white]{key}[/white] → engine")
 
             # Esperar hasta ENGINE_TIMEOUT segundos a que el engine guarde en caché
             deadline = time.perf_counter() + ENGINE_TIMEOUT
@@ -99,17 +99,17 @@ for msg in consumer:
                 # Miss resuelto: latencia end-to-end incluye tiempo del engine
                 r.rpush(f"{modo}:latencies",  latencia)
                 r.rpush(f"{modo}:timestamps", time.time())
-                console.print(f"  [bold cyan]✓ RESUELTO[/bold cyan]    [white]{key}[/white] [cyan]({latencia:.2f}ms)[/cyan]")
+                console.print(f"  [bold white]✓ RESUELTO[/bold white]    [white]{key}[/white] [white]({latencia:.2f}ms)[/white]")
             else:
                 # Engine no respondió a tiempo: reintento
-                console.print(f"  [bold red]✗ TIMEOUT[/bold red]     [white]{key}[/white] [red]({latencia:.2f}ms)[/red]")
+                console.print(f"  [bold white]✗ TIMEOUT[/bold white]     [white]{key}[/white] [white]({latencia:.2f}ms)[/white]")
                 manejar_fallo(mensaje)
 
     except KeyError as e:
-        console.print(f"  [red]Error de clave: {e}[/red]")
+        console.print(f"  [white]Error de clave: {e}[/white]")
     except Exception as e:
-        console.print(f"  [red]Error inesperado: {e}[/red]")
+        console.print(f"  [white]Error inesperado: {e}[/white]")
         try:
             manejar_fallo(mensaje)
         except Exception as e2:
-            console.print(f"  [red]Error al manejar fallo: {e2}[/red]")
+            console.print(f"  [white]Error al manejar fallo: {e2}[/white]")

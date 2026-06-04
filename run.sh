@@ -1,11 +1,11 @@
 #!/bin/bash
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
+GREEN='\033[1;37m'
+CYAN='\033[1;37m'
+YELLOW='\033[1;37m'
+RED='\033[1;37m'
+BLUE='\033[1;37m'
+PURPLE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m'
 

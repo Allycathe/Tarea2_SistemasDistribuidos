@@ -87,12 +87,12 @@ def imprimir_resumen(modo):
     # Tabla visual
     table = Table(
         title=f" Reporte de Simulación: {modo.upper()}",
-        title_style="bold magenta",
+        title_style="bold white",
         show_header=True,
-        header_style="bold cyan"
+        header_style="bold white"
     )
     table.add_column("Métrica",  style="dim")
-    table.add_column("Valor",    justify="right", style="bold green")
+    table.add_column("Valor",    justify="right", style="bold white")
 
     table.add_row("Hits / Misses",  f"{hits} / {misses}")
     table.add_row("Hit Rate",       f"{hit_rate}%")
@@ -100,13 +100,13 @@ def imprimir_resumen(modo):
     table.add_row("Latencia p95",   f"{round(p95, 2) if p95 else 0} ms")
     table.add_row("Throughput",     f"{round(throughput, 2)} qps")
     table.add_section()
-    table.add_row("[yellow]Retry Rate[/yellow]",        f"[yellow]{retry_rate}%[/yellow]")
-    table.add_row("[green]Recovery Rate[/green]",       f"[green]{recovery_rate}%[/green]")
-    table.add_row("[red]DLQ Rate[/red]",                f"[red]{dlq_rate}%[/red]")
-    table.add_row("[cyan]Backlog peak[/cyan]",    f"[cyan]{backlog} msgs[/cyan]")
-    table.add_row("[magenta]Recovery Time[/magenta]",    f"[magenta]{recovery_time}s[/magenta]")
+    table.add_row("[white]Retry Rate[/white]",        f"[white]{retry_rate}%[/white]")
+    table.add_row("[white]Recovery Rate[/white]",       f"[white]{recovery_rate}%[/white]")
+    table.add_row("[white]DLQ Rate[/white]",                f"[white]{dlq_rate}%[/white]")
+    table.add_row("[white]Backlog peak[/white]",    f"[white]{backlog} msgs[/white]")
+    table.add_row("[white]Recovery Time[/white]",    f"[white]{recovery_time}s[/white]")
 
-    console.print(Panel(table, expand=False, border_style="bright_blue"))
+    console.print(Panel(table, expand=False, border_style="white"))
     return filename
 
 

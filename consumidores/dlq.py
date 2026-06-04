@@ -29,9 +29,9 @@ consumer = KafkaConsumer(
 os.makedirs("resultados", exist_ok=True)
 
 console.print(Panel(
-    "[bold red]MONITOR DLQ ONLINE[/bold red]\n"
+    "[bold white]MONITOR DLQ ONLINE[/bold white]\n"
     "[dim]Escuchando: dlq — registrando consultas irrecuperables[/dim]",
-    border_style="red"
+    border_style="white"
 ))
 
 def registrar_en_archivo(mensaje):
@@ -58,12 +58,12 @@ def imprimir_tabla_dlq():
     modos = ["uniforme", "zipf"]
     table = Table(
         title="Resumen DLQ",
-        title_style="bold red",
+        title_style="bold white",
         show_header=True,
-        header_style="bold cyan"
+        header_style="bold white"
     )
     table.add_column("Modo",      style="dim")
-    table.add_column("Total DLQ", justify="right", style="bold red")
+    table.add_column("Total DLQ", justify="right", style="bold white")
 
     for modo in modos:
         total = r.get(f"{modo}:dlq_count") or "0"
@@ -86,7 +86,7 @@ for msg in consumer:
         registrar_en_archivo(mensaje)
 
         console.print(
-            f"  [bold red]💀 DLQ[/bold red]  [white]{key}[/white] "
+            f"  [bold white]💀 DLQ[/bold white]  [white]{key}[/white] "
             f"[dim]modo={modo} | intentos={intentos}[/dim]"
         )
 
@@ -96,6 +96,6 @@ for msg in consumer:
             imprimir_tabla_dlq()
 
     except KeyError as e:
-        console.print(f"  [red]Error de clave en DLQ: {e}[/red]")
+        console.print(f"  [white]Error de clave en DLQ: {e}[/white]")
     except Exception as e:
-        console.print(f"  [red]Error inesperado en DLQ: {e}[/red]")
+        console.print(f"  [white]Error inesperado en DLQ: {e}[/white]")

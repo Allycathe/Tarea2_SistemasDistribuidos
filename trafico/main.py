@@ -18,9 +18,9 @@ r = redis.Redis(
 )
 try:
     r.ping()
-    console.print(Panel("[bold green]✔[/bold green] Conexión exitosa con [bold cyan]Redis[/bold cyan]", border_style="green"))
+    console.print(Panel("[bold white]✔[/bold white] Conexión exitosa con [bold white]Redis[/bold white]", border_style="white"))
 except redis.ConnectionError:
-    console.print(Panel("[bold red]✘[/bold red] No se pudo conectar con [bold yellow]Redis[/bold yellow]", border_style="red"))
+    console.print(Panel("[bold white]✘[/bold white] No se pudo conectar con [bold white]Redis[/bold white]", border_style="white"))
 
 # MODO_TRANSPORTE=sincrono → Escenario 1 (sin Kafka)
 # MODO_TRANSPORTE=kafka    → Escenarios 2-7 (con Kafka)
@@ -37,10 +37,10 @@ if MODO_TRANSPORTE == "kafka":
                     bootstrap_servers=os.getenv("KAFKA_HOST", "kafka:9092"),
                     retries=5
                 )
-                console.print(Panel("[bold green]✔[/bold green] Conexión exitosa con [bold cyan]Kafka[/bold cyan]", border_style="green"))
+                console.print(Panel("[bold white]✔[/bold white] Conexión exitosa con [bold white]Kafka[/bold white]", border_style="white"))
                 return p
             except Exception as e:
-                console.print(f"[yellow]Esperando Kafka... ({e})[/yellow]")
+                console.print(f"[white]Esperando Kafka... ({e})[/white]")
                 time.sleep(3)
 
     producer = conectar_producer()
@@ -80,7 +80,7 @@ def _publicar_kafka(key, tipo, zona, conf, modo, zona_b, bins):
         key=zona.encode(),
         value=json.dumps(mensaje).encode()
     )
-    console.print(f"[bold blue]→ ENVIADO[/bold blue] [white]{key}[/white]")
+    console.print(f"[bold white]→ ENVIADO[/bold white] [white]{key}[/white]")
 
 
 def _publicar_sincrono(key, tipo, zona, conf, modo, zona_b, bins):
@@ -94,12 +94,12 @@ def _publicar_sincrono(key, tipo, zona, conf, modo, zona_b, bins):
         r.incr(f"{modo}:hits")
         r.rpush(f"{modo}:latencies",  latencia)
         r.rpush(f"{modo}:timestamps", time.time())
-        console.print(f"[bold green]✓ HIT[/bold green]  [white]{key}[/white] [green]({latencia:.2f}ms)[/green]")
+        console.print(f"[bold white]✓ HIT[/bold white]  [white]{key}[/white] [white]({latencia:.2f}ms)[/white]")
     else:
         r.incr(f"{modo}:misses")
         mensaje = _construir_mensaje(key, tipo, zona, conf, modo, zona_b, bins)
         r.lpush("cola:consultas", json.dumps(mensaje))
-        console.print(f"[bold yellow]· MISS[/bold yellow] [white]{key}[/white] → engine")
+        console.print(f"[bold white]· MISS[/bold white] [white]{key}[/white] → engine")
 
         # Esperar respuesta del engine (máx 5 s)
         deadline = time.perf_counter() + 5.0
@@ -135,7 +135,7 @@ def ejecutar_simulacion(modo):
         en_spike = SPIKE_ENABLED and SPIKE_EN_PEDIDO <= i < SPIKE_EN_PEDIDO + SPIKE_DURACION
         if en_spike:
             if i == SPIKE_EN_PEDIDO:
-                console.print(f"[bold yellow]⚡ Spike activado (pedidos {SPIKE_EN_PEDIDO}–{SPIKE_EN_PEDIDO + SPIKE_DURACION})[/bold yellow]")
+                console.print(f"[bold white]⚡ Spike activado (pedidos {SPIKE_EN_PEDIDO}–{SPIKE_EN_PEDIDO + SPIKE_DURACION})[/bold white]")
             time.sleep(SPIKE_DELAY_MS / 1000.0)
         else:
             time.sleep(DELAY_MS / 1000.0)
@@ -170,17 +170,17 @@ def ejecutar_simulacion(modo):
     if producer:
         producer.flush()
 
-    console.print(f"\n[bold green]✔ Fin de la simulación {modo.upper()}[/bold green]")
+    console.print(f"\n[bold white]✔ Fin de la simulación {modo.upper()}[/bold white]")
     console.print("[dim]──────────────────────────────────────────────────[/dim]\n")
 
 
 def esperar_engine():
-    with console.status("[bold yellow]Esperando a que el Motor cargue el dataset...", spinner="bouncingBar"):
+    with console.status("[bold white]Esperando a que el Motor cargue el dataset...", spinner="bouncingBar"):
         while not r.get("status:engine_ready"):
             time.sleep(2)
     console.print(Panel(
-        "[bold green]Dataset detectado[/bold green] — Preparando simulación...",
-        border_style="bright_blue"
+        "[bold white]Dataset detectado[/bold white] — Preparando simulación...",
+        border_style="white"
     ))
 
 

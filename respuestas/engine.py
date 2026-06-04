@@ -36,7 +36,7 @@ data = {}
 picos = namedtuple("picos", ["latitude", "longitude", "area", "confidence"])
 
 def cargar_datos():
-    with console.status("[bold yellow]Cargando y filtrando subconjunto de Santiago...", spinner="point"):
+    with console.status("[bold white]Cargando y filtrando subconjunto de Santiago...", spinner="point"):
         ruta = os.getenv("DATASET_PATH", "../dataset/buildings.csv")
         df = pd.read_csv(ruta)
 
@@ -59,7 +59,7 @@ def cargar_datos():
                 for row in filtrado.itertuples()
             ]
 
-    console.print(f"[bold green] Subconjunto cargado: {len(df_santiago)} edificios en las 5 zonas.[/bold green]")
+    console.print(f"[bold white] Subconjunto cargado: {len(df_santiago)} edificios en las 5 zonas.[/bold white]")
     return datos_por_zona
 
 def q1_count(zone_id, confidence_min=0.0):
@@ -138,7 +138,7 @@ def main():
     data = cargar_datos()
 
     r.set("status:engine_ready", "1")
-    console.print(Panel("[bold cyan]MOTOR DE RESPUESTAS ONLINE[/bold cyan]\n[dim]Escuchando cola:consultas...[/dim]", border_style="cyan"))
+    console.print(Panel("[bold white]MOTOR DE RESPUESTAS ONLINE[/bold white]\n[dim]Escuchando cola:consultas...[/dim]", border_style="white"))
 
     while True:
         try:
@@ -148,7 +148,7 @@ def main():
 
             # Simulación de falla aleatoria
             if FALLA_RATE > 0 and random.random() < FALLA_RATE:
-                console.print("[bold red] Fallo simulado[/bold red] — consulta descartada")
+                console.print("[bold white] Fallo simulado[/bold white] — consulta descartada")
                 continue
 
             mensaje_crudo = resultado[1]
