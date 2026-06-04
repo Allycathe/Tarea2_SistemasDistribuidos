@@ -73,7 +73,7 @@ for n_consumers in "${CONSUMERS_E6[@]}"; do
         -e DELAY_MS=$DELAY_MS \
         -e SPIKE_ENABLED=true \
         -e SPIKE_EN_PEDIDO=$(( N_PEDIDOS / 2 )) \
-        -e SPIKE_DURACION=$(( N_PEDIDOS / 5 )) \
+        -e SPIKE_DURACION=800 \
         -e SPIKE_DELAY_MS=1 \
         generador_trafico
 

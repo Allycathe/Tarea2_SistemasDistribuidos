@@ -330,33 +330,35 @@ for n_consumers in "${CONSUMERS_E6[@]}"; do
     sleep 30
 
     paso "Corriendo tráfico con spike | $n_consumers consumers..."
-    docker compose run --rm \
+    docker compose run --rm -d \
         -e SIMULATION_MODE=uniforme \
         -e N_PEDIDOS=$N_PEDIDOS \
         -e DELAY_MS=$DELAY_MS \
         -e SPIKE_ENABLED=true \
         -e SPIKE_EN_PEDIDO=$(( N_PEDIDOS / 2 )) \
-        #-e SPIKE_DURACION=$(( N_PEDIDOS / 5 )) \  este spike -> spike dura 500 consultas, luego vuelve a la latencia normal, pero dura muy poco 
-        -e SPIKE_DURACION=800 # 800 consultas durante el spike \ 
+        -e SPIKE_DURACION=800 \
         -e SPIKE_DELAY_MS=1 \
         generador_trafico
 
-    csv_file="resultados/lag_historico_spike${n_consumers}consumers.csv"
-    echo "t,lag,fase" > "$csv_file"
+    csv_file="resultados/lag_historico_spike_${n_consumers}consumers.csv"
+    echo "t,lag" > "$csv_file"
     t0=$(date +%s)
 
-        # Fase normal: grabar lag mientras llega tráfico antes de caer
-    deadline_pre=$(( $(date +%s) + 15 ))
-    while [ $(date +%s) -lt $deadline_pre ]; do
+    esperar_backlog 180 uniforme &
+    WAIT_PID=$!
+
+    while kill -0 $WAIT_PID 2>/dev/null; do
         lag=$(obtener_lag)
         t=$(( $(date +%s) - t0 ))
-        echo "$t,$lag,normal" >> "$csv_file"
+        echo "$t,$lag" >> "$csv_file"
         sleep 3
     done
- 
+
+    wait $WAIT_PID
+    ok "Historial guardado en $csv_file"
+
     guardar_metricas "caso6_spike_${n_consumers}consumers" "uniforme"
     limpiar_redis
-
     docker compose down -v
     sleep 5
 done
